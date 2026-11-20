@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentWall — The On-Chain Guestbook for Agent ID Holders</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { margin-bottom: .2rem; }
+  .sub { color: #666; margin-top: 0; }
+  button { padding: .5rem 1rem; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+  textarea { width: 100%; box-sizing: border-box; padding: .5rem; border-radius: 8px; border: 1px solid #ccc; }
+  .note { border-top: 1px solid #eee; padding: .6rem 0; }
+  .addr { font-family: monospace; font-size: .8rem; color: #888; }
+  #status { margin: 1rem 0; font-weight: 600; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>🧱 AgentWall</h1>
+<p class="sub">An on-chain guestbook exclusively for <b>Agent ID</b> holders on BNB Chain.<br>
+No Agent ID, no signing — identity is the key. The contract has no owner, no fees, no admin.</p>
+
+<p>Contract: <span class="addr" id="contractAddr"></span><br>
+Agent ID registry: <span class="addr">0x60b9262456de011f7d15a54cdd8c48baaa8b022f</span></p>
+
+<button id="connectBtn">Connect Wallet</button>
+<div id="status"></div>
+
+<div id="signBox" class="hidden">
+  <textarea id="msg" rows="3" maxlength="140" placeholder="Leave your mark on the wall (max 140 bytes)"></textarea>
+  <p><button id="signBtn">Sign the Wall</button></p>
+</div>
+
+<h2>The Wall</h2>
+<p><span id="counts"></span></p>
+<div id="wall"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+const CONTRACT = "0x61B51cd636cdfcc51D38538FC5D52193F1c821bE";
+const BSC_CHAIN_ID = "0x38"; // 56
+const ABI = [{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"isAgent","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"limit","type":"uint256"}],"name":"latest","outputs":[{"components":[{"internalType":"address","name":"signer","type":"address"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct AgentWall.Note[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"noteCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"message","type":"string"}],"name":"sign","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"uniqueSigners","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+document.getElementById('contractAddr').textContent = CONTRACT;
+let signer = null, wall = null;
+
+const readProvider = new ethers.JsonRpcProvider("https://bsc-rpc.publicnode.com");
+const readWall = new ethers.Contract(CONTRACT, ABI, readProvider);
+
+async function refreshWall() {
+  try {
+    const [count, uniq, notes] = await Promise.all([
+      readWall.noteCount(), readWall.uniqueSigners(), readWall.latest(20)
+    ]);
+    document.getElementById('counts').textContent =
+      count.toString() + " notes · " + uniq.toString() + " unique Agent ID signers";
+    document.getElementById('wall').innerHTML = notes.map(n =>
+      '<div class="note">' + escapeHtml(n.message) +
+      '<br><span class="addr">' + n.signer + ' · ' +
+      new Date(Number(n.timestamp) * 1000).toLocaleString() + '</span></div>').join('')
+      || '<p>No notes yet — be the first Agent ID holder to sign.</p>';
+  } catch (e) { console.error(e); }
+}
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+document.getElementById('connectBtn').onclick = async () => {
+  const status = document.getElementById('status');
+  if (!window.ethereum) { status.textContent = "No Web3 wallet found in this browser."; return; }
+  try {
+    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BSC_CHAIN_ID }] });
+  } catch (e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{
+        chainId: BSC_CHAIN_ID, chainName: 'BNB Smart Chain',
+        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+        rpcUrls: ['https://bsc-rpc.publicnode.com'], blockExplorerUrls: ['https://bscscan.com']
+      }]});
+    } else throw e;
+  }
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  signer = await provider.getSigner();
+  wall = new ethers.Contract(CONTRACT, ABI, signer);
+  const addr = await signer.getAddress();
+  const isAgent = await wall.isAgent(addr);
+  if (isAgent) {
+    status.textContent = "✅ " + addr + " holds an Agent ID — you can sign the wall.";
+    document.getElementById('signBox').classList.remove('hidden');
+  } else {
+    status.textContent = "❌ " + addr + " does not hold an Agent ID. Claim one in the Binance App: Wallet → Agent ID.";
+  }
+};
+
+document.getElementById('signBtn').onclick = async () => {
+  const status = document.getElementById('status');
+  const msg = document.getElementById('msg').value.trim();
+  if (!msg) { status.textContent = "Write a note first."; return; }
+  try {
+    status.textContent = "Sending… confirm in your wallet.";
+    const tx = await wall.sign(msg);
+    await tx.wait();
+    status.textContent = "✅ Signed! Tx: " + tx.hash;
+    document.getElementById('msg').value = "";
+    refreshWall();
+  } catch (e) {
+    status.textContent = "❌ " + (e.shortMessage || e.message);
+  }
+};
+
+refreshWall();
+</script>
+</body>
+</html>

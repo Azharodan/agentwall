@@ -1,0 +1,10 @@
+{
+  "contract": "0x61B51cd636cdfcc51D38538FC5D52193F1c821bE",
+  "deployTx": "0x2c0fb1f5b79c1fc9957e5899c27bdfe62bdee7502fdb32abb86d318233f5c742",
+  "deployer": "0x448Ac40A3f56137BB142a41970e5e3c6Ac4eE325",
+  "agentIdRegistry": "0x60b9262456de011f7d15a54cdd8c48baaa8b022f",
+  "gasUsed": "645553",
+  "costBNB": "0.00003227765",
+  "block": 134696739,
+  "chain": "bsc-mainnet-56"
+}

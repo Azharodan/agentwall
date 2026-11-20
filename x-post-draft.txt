@@ -1,0 +1,14 @@
+# X post draft — AgentWall (Community Promotion track)
+# Rodans posts this from @azharodan AFTER the project is live + submitted.
+# Then submit the post link via the official campaign survey:
+# https://app.binance.com/uni-qr/user-survey/ff6832f8d2984af289068c9450a3c98c
+# Replace [SITE] with the live AgentWall page URL.
+
+🧱 I built AgentWall — an on-chain guestbook on BNB Chain where your Agent ID is the key.
+
+Only Agent ID (name.ai) holders can sign the wall. No owner, no fees, immutable and open source.
+
+Fellow .ai holders, come leave your mark 👇
+[SITE]
+
+#BinanceWalletHackathon #AgenticWallet
